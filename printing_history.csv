@@ -1,0 +1,4 @@
+"printerid","start_time","finish_time","partid","status","postcheck_result"
+2,"2022-07-11 00:03:51","2022-07-11 01:05:00",3,"finished","waiting"
+3,"2022-07-09 11:54:06","2022-07-09 13:06:09",6,"finished","pass"
+2,"2022-07-09 14:47:28","2022-07-09 15:38:46",7,"finished","defect detected"

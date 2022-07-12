@@ -1,0 +1,8 @@
+"partid","status","part_type","colour","assigned_printerid","start_time","finish_time"
+1,"waiting","small_bin","black",NULL,NULL,NULL
+2,"printing","medium_bin","white",1,"2022-07-11 01:01:01",NULL
+3,"finished","sleeve","red",2,"2022-07-11 00:03:51","2022-07-11 01:05:00"
+4,"failed","tray","blue",1,"2022-07-10 10:17:08","2022-07-10 12:10:20"
+5,"waiting","tray","blue",NULL,NULL,NULL
+6,"finished","tray","white",3,"2022-07-09 11:54:06","2022-07-09 13:06:09"
+7,"finished","sleeve","black",2,"2022-07-09 14:47:28","2022-07-09 15:38:46"
