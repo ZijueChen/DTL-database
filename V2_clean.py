@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[2]:
-
-
 from PIL import Image
 from brother_ql.conversion import convert
 from brother_ql.backends.helpers import send
@@ -18,13 +12,9 @@ import numpy as np
 import psycopg2
 import datetime
 
-connection = psycopg2.connect(database='DTLSQLV2', user='postgres', password='4321', host='localhost')
+connection = psycopg2.connect(database='DTLSQLV2', user='postgres', password='4321', host='172.31.1.163')
 cursor=connection.cursor()
-Database.initialise(database="DTLSQLV2", user="postgres", password="4321", host="localhost")
-
-
-# In[4]:
-
+Database.initialise(database="DTLSQLV2", user="postgres", password="4321", host='172.31.1.163')
 
 # -----------------------QR code related functions--------------------------
 
@@ -104,10 +94,7 @@ def send_to_labelmaker(im):
 
     send(instructions=instructions, printer_identifier=printer, backend_identifier=backend, blocking=True)
 
-
-# In[ ]:
-
-
+# -------------------Filament related functions-----------------------------
 # no filamentID required for input, generate automatically when input new filament info
 class Filament:
     def __init__(self, material, colour, filament_diameter, current_loc, price, open_date, brand, left_weight):
@@ -133,17 +120,34 @@ class Filament:
         with CursorFromConnectionPool() as cursor:
             cursor.execute('UPDATE filament SET current_loc=%s WHERE filamentid=%s;', (new_loc, filamentid,))
     @classmethod
-    # add a new roll of filament to database
+    # add a new roll of filament to database, price, open_data, brand, left_weight can be '-'
     # automatically print QR code from labelmaker
-    def add_new_filament(cls, material, colour, filament_diameter, current_loc, price, brand, left_weight): 
+    def add_new_filament(cls, material, colour, filament_diameter, current_loc, price, open_date, brand, left_weight): 
+        # make commend line first
+        inputs = [material, colour, filament_diameter, current_loc]
+        sub_inputs = [price, open_date, brand, left_weight]
+        names_col = ['price', 'open_date', 'brand', 'left_weight']
+        cmd = 'INSERT INTO filament (material, colour, filament_diameter, current_loc'
+        'price, open_date, brand, left_weight) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)'
+        cmd_end = ') VALUES (%s, %s, %s, %s'
+        empty_inputs = [i for i, x in enumerate(sub_inputs) if x == "-"]
+        for i in range(len(sub_inputs)):
+            if i in empty_inputs:
+                pass
+            else:
+                cmd = cmd + ', ' + names_col[i]
+                cmd_end = cmd_end + ', %s'
+                inputs = inputs + [sub_inputs[i]]
+        cmd = cmd + cmd_end + ')'
+        # finished making commend line
+        
+        if open_date == 'today':
+            open_data = datetime.datetime.now().strftime("%Y-%m-%d")
         with CursorFromConnectionPool() as cursor:
-            today = datetime.datetime.now().strftime("%Y-%m-%d")
-            cursor.execute('INSERT INTO filament (material, colour, filament_diameter, current_loc, \
-            price, open_date, brand, left_weight) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)',
-                            (material, colour, filament_diameter, current_loc, price, today, brand, left_weight,))
+            cursor.execute(cmd, inputs)
             cursor.execute('SELECT filamentid FROM filament ORDER BY filamentid DESC')
             filamentid = cursor.fetchone()[0]
-            im = generate_label(filamentid, colour, filament_diameter, material, today, price)
+            im = generate_label(filamentid, colour, filament_diameter, material, open_date, price)
             send_to_labelmaker(im)
     @classmethod
     # 新增一个filament 随便写来不trigger label maker用python自动生成虚假数据的
@@ -153,10 +157,7 @@ class Filament:
             price, open_date, brand, left_weight) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)',
                             (material, colour, filament_diameter, current_loc, price, date, brand, left_weight,))
 
-
-# In[ ]:
-
-
+# -------------------Printer related functions-----------------------------
 class Printer:
     def __init__(self, printerid, status, start_time, filamentid):
         self.printerid = printerid
@@ -192,10 +193,7 @@ class Printer:
             cursor.execute('INSERT INTO printer_tracking (printerid, status, start_time, filamentid) \
             VALUES (%s, %s, %s, %s)', (printerid, status, now, filamentid))
 
-
-# In[ ]:
-
-
+# -------------------Printing Job related functions-----------------------------
 class Printing:
     def __init__(self, assigned_printerid, start_time, finish_time, snapshot_path, print_result):
         self.assigned_printerid = assigned_printerid
@@ -204,12 +202,12 @@ class Printing:
         self.snapshot_path = snapshot_path
         self.print_result = print_result
     @classmethod
-    # 开始一个print job 自动发一个partid
-    def start_part_by_printerid(cls, printerid): 
+    # 开始一个print job 自动发一个partid，记录part_name
+    def start_part_by_printerid(cls, printerid, part_name): 
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with CursorFromConnectionPool() as cursor:
-            cursor.execute('INSERT INTO printing (assigned_printerid, start_time) VALUES (%s, %s)',
-                            (printerid, now,))
+            cursor.execute('INSERT INTO printing (assigned_printerid, start_time, part_name) VALUES (%s, %s, %s)',
+                            (printerid, now, part_name,))
     @classmethod
     def snapshot_by_printer(cls, printerid):
         req = urllib.request.urlopen("http://172.31.1.22"+str(int(printerid)+4)+":8080/?action=snapshot")
@@ -254,4 +252,7 @@ class Printing:
                 partid = cursor.fetchone()[0]
                 cursor.execute('UPDATE printing SET finish_time=%s, snapshot_path=%s, print_result=%s WHERE partid=%s;', 
                                (now, path, 'cancelled', partid,))
+
+
+
 
